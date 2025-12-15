@@ -9,6 +9,7 @@ import getpass
 
 if TYPE_CHECKING:
     from fim_agent.core.config import Config
+    from fim_agent.core.storage import Storage
 
 
 EventType = Literal["create", "modify", "delete", "rename", "move_internal", "move_in", "move_out"]
@@ -243,41 +244,46 @@ def simple_ai_classification(event: Event) -> Tuple[str, int, str]:
     return classification, base_score, reason
 
 
-def mark_alert(event: Event, min_risk: int, min_ai_risk: int) -> Event:
+def mark_alert(event: Event, min_risk: int, min_ai_risk: int, storage: Optional[Any] = None) -> Event:
     """
     Mark an event as an alert based on risk score thresholds.
     
     Sets event.is_alert = True if:
     - event.risk_score is not None and >= min_risk, OR
     - event.ai_risk_score is not None and >= min_ai_risk, OR
-    - Tamper event on private/secret file that is NOT first-seen (forced alert)
+    - Tamper event on private/secret file that has ever been private before (forced alert)
     
-    CREATE events on private files do NOT trigger alerts (first-seen is allowed).
-    Tamper events on existing private files DO trigger alerts.
+    First time a file becomes private does NOT trigger alerts.
+    Subsequent changes to files that have ever been private DO trigger alerts.
     
     Otherwise sets is_alert = False.
     """
-    from fim_agent.core.governance import TAMPER_EVENTS
+    from fim_agent.core.governance import TAMPER_EVENTS, _norm_path
     
     is_alert = False
     
     # Check if file is private/secret
     is_private = event.content_classification in ("private", "secret")
     
-    # Detect first-seen: previous_sha256 is None OR first_seen is True
-    is_first_seen = (
-        event.previous_sha256 is None or 
-        (event.first_seen is not None and event.first_seen is True)
-    )
+    # Get ever_private flag from baseline (if storage is available)
+    ever_private = False
+    if storage and is_private:
+        try:
+            key = _norm_path(event.path)
+            ever_private = storage.get_ever_private(key)
+        except Exception:
+            # If storage lookup fails, fall back to checking if requires_admin_approval is set
+            # (which would indicate the file has been private before)
+            ever_private = getattr(event, "requires_admin_approval", False)
     
-    # Force alert for tamper events on private/secret files that are NOT first-seen
+    # Force alert for tamper events on private/secret files that have been private before
     if event.event_type in TAMPER_EVENTS:
-        if is_private and not is_first_seen:
+        if is_private and ever_private:
             is_alert = True
             event.is_alert = is_alert
             return event
     
-    # CREATE events on private files: do NOT force alert (allow first-seen)
+    # First time a file becomes private: do NOT force alert
     # This is handled by the standard risk-based logic below
     
     # Standard risk-based alert logic

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from fim_agent.core.config import Config
 from fim_agent.core.events import Event
+
+if TYPE_CHECKING:
+    from fim_agent.core.storage import Storage
 
 
 # Event types that represent tampering with existing files
@@ -45,14 +48,15 @@ def is_sensitive(event: Event, config: Optional[Config] = None) -> bool:
     return False
 
 
-def mark_requires_admin_approval(event: Event, config: Optional[Config] = None) -> Event:
+def mark_requires_admin_approval(event: Event, config: Optional[Config] = None, storage: Optional["Storage"] = None) -> Event:
     """
     Admin approval rules:
     
-    - A path that becomes sensitive for the first time: first_seen = True, no password required
-    - Any later tamper event on the same path: requires_admin_approval = True
+    - A file that becomes private for the first time: no alert, no approval required
+    - Any later change event on a file that has ever been private: requires alert + approval
     - High-risk tamper events (risk_score >= admin_min_risk_score) always require approval
-    - When a path is no longer sensitive, it is removed from the set
+    
+    Uses persistent `ever_private` flag in baseline to track if a file has ever been private.
     """
     # Default values
     event.requires_admin_approval = False
@@ -70,95 +74,77 @@ def mark_requires_admin_approval(event: Event, config: Optional[Config] = None) 
     # Normalize path for consistent comparison
     key = _norm_path(event.path)
     
-    # Check if path was previously sensitive
-    was_sensitive = key in SENSITIVE_PATHS
-    # Check if current event is sensitive
-    now_sensitive = is_sensitive(event, config)
+    # Check if current event is sensitive/private
+    is_private = is_sensitive(event, config)
     
-    # For CREATE events: ensure sensitive paths are tracked, but never require approval
+    # Get ever_private flag from baseline (if storage is available)
+    ever_private = False
+    if storage:
+        try:
+            ever_private = storage.get_ever_private(key)
+        except Exception:
+            # If storage lookup fails, fall back to in-memory tracking
+            ever_private = key in SENSITIVE_PATHS
+    
+    # For CREATE events: mark as ever_private if private, but never require approval
     if event.event_type == "create":
-        if now_sensitive and not was_sensitive:
-            SENSITIVE_PATHS.add(key)  # Track newly sensitive path
+        if is_private and not ever_private:
+            # First time this file becomes private
+            if storage:
+                try:
+                    storage.set_ever_private(key, True)
+                except Exception:
+                    pass
+            SENSITIVE_PATHS.add(key)  # Also track in-memory
             event.first_seen = True
-        elif now_sensitive:
-            event.first_seen = False  # Already known sensitive path
+        elif is_private:
+            event.first_seen = False  # Already known as private
         else:
-            event.first_seen = not was_sensitive  # Not sensitive
+            event.first_seen = not ever_private  # Not private
         event.requires_admin_approval = False  # CREATE never requires approval
-        event.admin_approved = None  # CREATE events don't need approval, leave as None
+        event.admin_approved = None
         return event
     
     # Handle TAMPER_EVENTS
     if event.event_type in TAMPER_EVENTS:
-        # Check for high-risk tamper event (independent of sensitive path logic)
+        # Check for high-risk tamper event (independent of private file logic)
         admin_min_risk = getattr(config, "admin_min_risk_score", 80)
         is_high_risk = (
             event.risk_score is not None and 
             event.risk_score >= admin_min_risk
         )
         
-        # Detect first-seen: baseline missing (previous_sha256 is None) OR first_seen is True
-        # This handles the Notepad case: create + immediate modify on brand-new file
-        # previous_sha256 will be None if baseline doesn't exist yet
-        is_first_seen = (
-            getattr(event, "previous_sha256", None) is None or
-            (getattr(event, "first_seen", None) is not None and getattr(event, "first_seen", None) is True)
-        )
-        
-        # Check if file is private/secret
-        is_private = now_sensitive
-        
-        # If private and first-seen (baseline missing): no alert, no approval
-        if is_private and is_first_seen:
+        # If file is private and has never been private before: first time becoming private
+        if is_private and not ever_private:
+            # First time this file becomes private -> NO alert, NO approval
+            if storage:
+                try:
+                    storage.set_ever_private(key, True)
+                except Exception:
+                    pass
             SENSITIVE_PATHS.add(key)  # Track for future events
             event.first_seen = True
             event.requires_admin_approval = False
             event.admin_approved = None
             return event
         
-        # If private and NOT first-seen (baseline exists): require alert + approval
-        if is_private and not is_first_seen:
-            # File was seen before and is now being tampered with
+        # If file is private and has been private before: require alert + approval
+        if is_private and ever_private:
+            # File has been private before and is now being changed
             event.first_seen = False
             event.requires_admin_approval = True
             event.admin_approved = False
-            # Also ensure path is tracked
-            if not was_sensitive:
-                SENSITIVE_PATHS.add(key)
+            SENSITIVE_PATHS.add(key)  # Ensure tracked
             return event
         
-        # Newly discovered sensitive path (first time becoming sensitive, but baseline exists)
-        # This is a transition case: file existed as public, now becomes private
-        if now_sensitive and not was_sensitive:
-            SENSITIVE_PATHS.add(key)
-            # If baseline exists but wasn't sensitive before, this is a transition
-            if not is_first_seen:
-                # File existed before but just became sensitive: transition - force approval
-                event.first_seen = False
-                event.requires_admin_approval = True
-                event.admin_approved = False
-            else:
-                # Should have been caught by the is_private and is_first_seen check above
-                event.first_seen = True
-                event.requires_admin_approval = False
-                event.admin_approved = None
-            return event
-        
-        # Subsequent tampering with an already sensitive file (NOT first-seen)
-        if was_sensitive:
-            event.first_seen = False
-            event.requires_admin_approval = True
-            event.admin_approved = False
-            return event
-        
-        # High-risk tamper event on non-sensitive path
+        # High-risk tamper event on non-private path
         if is_high_risk:
             event.first_seen = False
             event.requires_admin_approval = True
             event.admin_approved = False
             return event
         
-        # Low-risk tamper event on non-sensitive path
+        # Low-risk tamper event on non-private path
         event.first_seen = False
         event.requires_admin_approval = False
         return event

@@ -365,7 +365,7 @@ class WatchHandler(FileSystemEventHandler):
         event_obj.ai_recommendation = generate_ai_recommendation(event_obj)
         
         # Mark as alert if thresholds are met (includes forced alerts for tamper events on sensitive files)
-        mark_alert(event_obj, self.config.alert_min_risk_score, self.config.alert_min_ai_risk_score)
+        mark_alert(event_obj, self.config.alert_min_risk_score, self.config.alert_min_ai_risk_score, self.storage)
         
         # Optionally enhance with real OpenAI AI analysis for "interesting" events
         if _should_analyze_with_ai(event_obj):
@@ -393,7 +393,7 @@ class WatchHandler(FileSystemEventHandler):
         
         # For move_in and TAMPER_EVENTS, call mark_requires_admin_approval
         if event_obj.event_type == "move_in" or event_obj.event_type in TAMPER_EVENTS:
-            mark_requires_admin_approval(event_obj, self.config)
+            mark_requires_admin_approval(event_obj, self.config, self.storage)
         
         # Log warning if admin approval is required (non-interactive - web UI handles approval)
         if event_obj.requires_admin_approval:
@@ -513,7 +513,7 @@ class WatchHandler(FileSystemEventHandler):
         event.ai_recommendation = generate_ai_recommendation(event)
         
         # Mark as alert if thresholds are met (includes forced alerts for tamper events on sensitive files)
-        mark_alert(event, self.config.alert_min_risk_score, self.config.alert_min_ai_risk_score)
+        mark_alert(event, self.config.alert_min_risk_score, self.config.alert_min_ai_risk_score, self.storage)
         
         # Optionally enhance with real OpenAI AI analysis for "interesting" events
         if _should_analyze_with_ai(event):
@@ -531,7 +531,7 @@ class WatchHandler(FileSystemEventHandler):
         
         # For CREATE and TAMPER_EVENTS, call mark_requires_admin_approval
         if event.event_type == "create" or event.event_type in TAMPER_EVENTS:
-            mark_requires_admin_approval(event, self.config)
+            mark_requires_admin_approval(event, self.config, self.storage)
         
         # Log warning if admin approval is required (non-interactive - web UI handles approval)
         if event.requires_admin_approval:

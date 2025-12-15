@@ -31,10 +31,12 @@ class Storage:
                 hash TEXT,
                 first_seen TEXT,
                 last_seen TEXT,
-                last_event_type TEXT
+                last_event_type TEXT,
+                ever_private INTEGER
             )
             """
         )
+        self._ensure_file_columns()
         # Events table for timeline; includes minimal required columns plus extras.
         self.conn.execute(
             """
@@ -72,6 +74,18 @@ class Storage:
         )
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(timestamp)")
         self._ensure_event_columns()
+        self.conn.commit()
+
+    def _ensure_file_columns(self) -> None:
+        """Add missing file columns for forward compatibility."""
+        cursor = self.conn.execute("PRAGMA table_info(files)")
+        existing = {row[1] for row in cursor.fetchall()}
+        needed = {
+            "ever_private": "INTEGER",
+        }
+        for col, col_type in needed.items():
+            if col not in existing:
+                self.conn.execute(f"ALTER TABLE files ADD COLUMN {col} {col_type}")
         self.conn.commit()
 
     def _ensure_event_columns(self) -> None:
@@ -122,19 +136,50 @@ class Storage:
         record = self.get_file(path)
         return record is not None
 
-    def upsert_file(self, path: str, file_hash: str, event_type: str, timestamp: datetime) -> None:
+    def upsert_file(self, path: str, file_hash: str, event_type: str, timestamp: datetime, ever_private: Optional[bool] = None) -> None:
         """Insert or update a file record."""
         ts = timestamp.isoformat()
+        # If ever_private is provided, update it; otherwise preserve existing value
+        if ever_private is not None:
+            self.conn.execute(
+                """
+                INSERT INTO files (path, hash, first_seen, last_seen, last_event_type, ever_private)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(path) DO UPDATE SET
+                    hash=excluded.hash,
+                    last_seen=excluded.last_seen,
+                    last_event_type=excluded.last_event_type,
+                    ever_private=excluded.ever_private
+                """,
+                (path, file_hash, ts, ts, event_type, 1 if ever_private else 0),
+            )
+        else:
+            # Preserve existing ever_private value
+            self.conn.execute(
+                """
+                INSERT INTO files (path, hash, first_seen, last_seen, last_event_type, ever_private)
+                VALUES (?, ?, ?, ?, ?, COALESCE((SELECT ever_private FROM files WHERE path = ?), 0))
+                ON CONFLICT(path) DO UPDATE SET
+                    hash=excluded.hash,
+                    last_seen=excluded.last_seen,
+                    last_event_type=excluded.last_event_type
+                """,
+                (path, file_hash, ts, ts, event_type, path),
+            )
+        self.conn.commit()
+    
+    def get_ever_private(self, path: str) -> bool:
+        """Check if a file has ever been marked as private."""
+        record = self.get_file(path)
+        if not record:
+            return False
+        return bool(record.get("ever_private", 0))
+    
+    def set_ever_private(self, path: str, value: bool) -> None:
+        """Mark a file as having ever been private."""
         self.conn.execute(
-            """
-            INSERT INTO files (path, hash, first_seen, last_seen, last_event_type)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(path) DO UPDATE SET
-                hash=excluded.hash,
-                last_seen=excluded.last_seen,
-                last_event_type=excluded.last_event_type
-            """,
-            (path, file_hash, ts, ts, event_type),
+            "UPDATE files SET ever_private = ? WHERE path = ?",
+            (1 if value else 0, path),
         )
         self.conn.commit()
 
