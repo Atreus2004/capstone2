@@ -250,7 +250,10 @@ def mark_alert(event: Event, min_risk: int, min_ai_risk: int) -> Event:
     Sets event.is_alert = True if:
     - event.risk_score is not None and >= min_risk, OR
     - event.ai_risk_score is not None and >= min_ai_risk, OR
-    - Tamper event on private/secret file (forced alert)
+    - Tamper event on private/secret file that is NOT first-seen (forced alert)
+    
+    CREATE events on private files do NOT trigger alerts (first-seen is allowed).
+    Tamper events on existing private files DO trigger alerts.
     
     Otherwise sets is_alert = False.
     """
@@ -258,12 +261,24 @@ def mark_alert(event: Event, min_risk: int, min_ai_risk: int) -> Event:
     
     is_alert = False
     
-    # Force alert for tamper events on private/secret files
+    # Check if file is private/secret
+    is_private = event.content_classification in ("private", "secret")
+    
+    # Detect first-seen: previous_sha256 is None OR first_seen is True
+    is_first_seen = (
+        event.previous_sha256 is None or 
+        (event.first_seen is not None and event.first_seen is True)
+    )
+    
+    # Force alert for tamper events on private/secret files that are NOT first-seen
     if event.event_type in TAMPER_EVENTS:
-        if event.content_classification in ("private", "secret"):
+        if is_private and not is_first_seen:
             is_alert = True
             event.is_alert = is_alert
             return event
+    
+    # CREATE events on private files: do NOT force alert (allow first-seen)
+    # This is handled by the standard risk-based logic below
     
     # Standard risk-based alert logic
     if event.risk_score is not None and event.risk_score >= min_risk:

@@ -46,7 +46,7 @@ def test_private_secret_tamper_high_risk():
     """Test that tampering with private/secret files is always high-risk and alerts."""
     from fim_agent.core.events import simple_risk_score, mark_alert, derive_severity_from_risk
     
-    # Test private file tampering
+    # Test private file tampering (NOT first-seen - has previous_sha256)
     ev_private = Event(
         timestamp=datetime.utcnow(),
         event_type="modify",
@@ -57,6 +57,8 @@ def test_private_secret_tamper_high_risk():
         mitre_tags=[],
         message="Modified private file",
         content_classification="private",
+        previous_sha256="a",  # File existed before - NOT first-seen
+        first_seen=False,
     )
     score_private = simple_risk_score(ev_private)
     assert score_private >= 80, f"Expected risk_score >= 80 for private file tamper, got {score_private}"
@@ -65,9 +67,9 @@ def test_private_secret_tamper_high_risk():
     assert severity_private == "high", f"Expected severity 'high' for risk_score {score_private}, got {severity_private}"
     
     mark_alert(ev_private, min_risk=70, min_ai_risk=70)
-    assert ev_private.is_alert is True, "Expected alert=True for private file tamper"
+    assert ev_private.is_alert is True, "Expected alert=True for private file tamper (NOT first-seen)"
     
-    # Test secret file tampering
+    # Test secret file tampering (NOT first-seen)
     ev_secret = Event(
         timestamp=datetime.utcnow(),
         event_type="delete",
@@ -78,6 +80,8 @@ def test_private_secret_tamper_high_risk():
         mitre_tags=[],
         message="Deleted secret file",
         content_classification="secret",
+        previous_sha256="a",  # File existed before - NOT first-seen
+        first_seen=False,
     )
     score_secret = simple_risk_score(ev_secret)
     assert score_secret >= 90, f"Expected risk_score >= 90 for secret file tamper, got {score_secret}"
@@ -86,9 +90,9 @@ def test_private_secret_tamper_high_risk():
     assert severity_secret == "high", f"Expected severity 'high' for risk_score {score_secret}, got {severity_secret}"
     
     mark_alert(ev_secret, min_risk=70, min_ai_risk=70)
-    assert ev_secret.is_alert is True, "Expected alert=True for secret file tamper"
+    assert ev_secret.is_alert is True, "Expected alert=True for secret file tamper (NOT first-seen)"
     
-    # Test that create events on private files don't automatically alert
+    # Test that create events on private files don't automatically alert (first-seen)
     ev_create = Event(
         timestamp=datetime.utcnow(),
         event_type="create",
@@ -99,6 +103,8 @@ def test_private_secret_tamper_high_risk():
         mitre_tags=[],
         message="Created private file",
         content_classification="private",
+        previous_sha256=None,  # First-seen file
+        first_seen=True,
     )
     score_create = simple_risk_score(ev_create)
     # Create events should not have the tamper boost
@@ -410,6 +416,70 @@ def test_admin_approval_policy():
     )
     mark_requires_admin_approval(high_risk_ev, True, 80, 75, config=config)
     assert high_risk_ev.requires_admin_approval is True, "High-risk event should require approval"
+
+
+def test_create_private_no_alert_modify_private_alert():
+    """Test that creating a private file does NOT trigger alert, but modifying it DOES."""
+    from fim_agent.core.events import mark_alert
+    from fim_agent.core.governance import mark_requires_admin_approval, SENSITIVE_PATHS
+    from fim_agent.core.config import Config
+    
+    # Clear SENSITIVE_PATHS at start
+    SENSITIVE_PATHS.clear()
+    
+    config = Config(
+        monitored_directories=["./watched"],
+        exclude_directories=[],
+        exclude_extensions=[],
+        database_path="./data/fim.sqlite3",
+        log_file="./logs/fim_agent.log",
+        log_format="json",
+        require_admin_for_alerts=True,
+    )
+    
+    # Test 1: CREATE event on private file (first-seen) - should NOT trigger alert
+    create_ev = Event(
+        timestamp=datetime.utcnow(),
+        event_type="create",
+        path="/watched/private_data.txt",
+        old_hash=None,
+        new_hash="abc123",
+        severity="medium",
+        mitre_tags=[],
+        message="CREATE /watched/private_data.txt",
+        content_classification="private",
+        previous_sha256=None,  # First-seen: no previous hash
+        first_seen=True,
+        risk_score=50,  # Below alert threshold
+    )
+    mark_alert(create_ev, min_risk=70, min_ai_risk=70)
+    assert create_ev.is_alert is False, "CREATE event on private file (first-seen) should NOT trigger alert"
+    
+    mark_requires_admin_approval(create_ev, config)
+    assert create_ev.requires_admin_approval is False, "CREATE event on private file should NOT require approval"
+    assert create_ev.admin_approved is None, "CREATE event should have admin_approved=None (not False)"
+    
+    # Test 2: MODIFY event on same private file (NOT first-seen) - SHOULD trigger alert
+    modify_ev = Event(
+        timestamp=datetime.utcnow(),
+        event_type="modify",
+        path="/watched/private_data.txt",
+        old_hash="abc123",
+        new_hash="def456",
+        severity="medium",
+        mitre_tags=[],
+        message="MODIFY /watched/private_data.txt",
+        content_classification="private",
+        previous_sha256="abc123",  # NOT first-seen: has previous hash
+        first_seen=False,
+        risk_score=50,  # Below alert threshold, but should be forced alert
+    )
+    mark_alert(modify_ev, min_risk=70, min_ai_risk=70)
+    assert modify_ev.is_alert is True, "MODIFY event on private file (NOT first-seen) SHOULD trigger alert"
+    
+    mark_requires_admin_approval(modify_ev, config)
+    assert modify_ev.requires_admin_approval is True, "MODIFY event on private file should require approval"
+    assert modify_ev.admin_approved is False, "MODIFY event should have admin_approved=False"
 
 
 def test_high_risk_executables():

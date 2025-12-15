@@ -85,6 +85,7 @@ def mark_requires_admin_approval(event: Event, config: Optional[Config] = None) 
         else:
             event.first_seen = not was_sensitive  # Not sensitive
         event.requires_admin_approval = False  # CREATE never requires approval
+        event.admin_approved = None  # CREATE events don't need approval, leave as None
         return event
     
     # Handle TAMPER_EVENTS
@@ -96,19 +97,54 @@ def mark_requires_admin_approval(event: Event, config: Optional[Config] = None) 
             event.risk_score >= admin_min_risk
         )
         
-        # Newly discovered sensitive path (first time) - first_seen optimization
+        # Detect first-seen: baseline missing (previous_sha256 is None) OR first_seen is True
+        # This handles the Notepad case: create + immediate modify on brand-new file
+        # previous_sha256 will be None if baseline doesn't exist yet
+        is_first_seen = (
+            getattr(event, "previous_sha256", None) is None or
+            (getattr(event, "first_seen", None) is not None and getattr(event, "first_seen", None) is True)
+        )
+        
+        # Check if file is private/secret
+        is_private = now_sensitive
+        
+        # If private and first-seen (baseline missing): no alert, no approval
+        if is_private and is_first_seen:
+            SENSITIVE_PATHS.add(key)  # Track for future events
+            event.first_seen = True
+            event.requires_admin_approval = False
+            event.admin_approved = None
+            return event
+        
+        # If private and NOT first-seen (baseline exists): require alert + approval
+        if is_private and not is_first_seen:
+            # File was seen before and is now being tampered with
+            event.first_seen = False
+            event.requires_admin_approval = True
+            event.admin_approved = False
+            # Also ensure path is tracked
+            if not was_sensitive:
+                SENSITIVE_PATHS.add(key)
+            return event
+        
+        # Newly discovered sensitive path (first time becoming sensitive, but baseline exists)
+        # This is a transition case: file existed as public, now becomes private
         if now_sensitive and not was_sensitive:
             SENSITIVE_PATHS.add(key)
-            event.first_seen = True
-            # First tamper on newly sensitive path: only require approval if high-risk
-            if is_high_risk:
+            # If baseline exists but wasn't sensitive before, this is a transition
+            if not is_first_seen:
+                # File existed before but just became sensitive: transition - force approval
+                event.first_seen = False
                 event.requires_admin_approval = True
                 event.admin_approved = False
             else:
+                # Should have been caught by the is_private and is_first_seen check above
+                event.first_seen = True
                 event.requires_admin_approval = False
+                event.admin_approved = None
             return event
         
-        # Subsequent tampering with an already sensitive file
+        # Subsequent tampering with an already sensitive file (NOT first-seen)
         if was_sensitive:
             event.first_seen = False
             event.requires_admin_approval = True
