@@ -263,22 +263,23 @@ def mark_alert(event: Event, min_risk: int, min_ai_risk: int, storage: Optional[
     is_alert = False
     
     # Check if file is private/secret
-    is_private = event.content_classification in ("private", "secret")
+    now_private = event.content_classification in ("private", "secret")
     
-    # Get ever_private flag from baseline (if storage is available)
-    ever_private = False
-    if storage and is_private:
+    # Get baseline ever_private flag (sticky privacy marker)
+    # Check baseline for ALL tamper events, not just when now_private is True
+    was_private = False
+    if storage and event.event_type in TAMPER_EVENTS:
         try:
             key = _norm_path(event.path)
-            ever_private = storage.get_ever_private(key)
+            was_private = storage.get_ever_private(key)
         except Exception:
             # If storage lookup fails, fall back to checking if requires_admin_approval is set
-            # (which would indicate the file has been private before)
-            ever_private = getattr(event, "requires_admin_approval", False)
+            was_private = getattr(event, "requires_admin_approval", False)
     
-    # Force alert for tamper events on private/secret files that have been private before
+    # Force alert for tamper events on files that were already private (ever_private == True)
+    # This works even if now_private is False (file was private, any change triggers alert)
     if event.event_type in TAMPER_EVENTS:
-        if is_private and ever_private:
+        if was_private:
             is_alert = True
             event.is_alert = is_alert
             return event

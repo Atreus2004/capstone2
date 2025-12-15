@@ -52,11 +52,11 @@ def mark_requires_admin_approval(event: Event, config: Optional[Config] = None, 
     """
     Admin approval rules:
     
-    - A file that becomes private for the first time: no alert, no approval required
-    - Any later change event on a file that has ever been private: requires alert + approval
+    - A file that becomes private for the first time (baseline classification != "private"): no alert, no approval required
+    - Any later change event on a file that is already private (baseline classification == "private"): requires alert + approval
     - High-risk tamper events (risk_score >= admin_min_risk_score) always require approval
     
-    Uses persistent `ever_private` flag in baseline to track if a file has ever been private.
+    Uses persistent `content_classification` in baseline to track if a file is currently private.
     """
     # Default values
     event.requires_admin_approval = False
@@ -75,21 +75,33 @@ def mark_requires_admin_approval(event: Event, config: Optional[Config] = None, 
     key = _norm_path(event.path)
     
     # Check if current event is sensitive/private
-    is_private = is_sensitive(event, config)
+    now_private = is_sensitive(event, config)
     
-    # Get ever_private flag from baseline (if storage is available)
-    ever_private = False
+    # Get baseline ever_private flag (sticky privacy marker)
+    was_private = False
     if storage:
         try:
-            ever_private = storage.get_ever_private(key)
+            was_private = storage.get_ever_private(key)
         except Exception:
             # If storage lookup fails, fall back to in-memory tracking
-            ever_private = key in SENSITIVE_PATHS
+            was_private = key in SENSITIVE_PATHS
     
-    # For CREATE events: mark as ever_private if private, but never require approval
+    # Detect first-time: baseline missing OR previous_sha256 is None OR event.first_seen == True
+    is_first_seen = (
+        getattr(event, "previous_sha256", None) is None or
+        (getattr(event, "first_seen", None) is not None and getattr(event, "first_seen", None) is True)
+    )
+    if storage:
+        try:
+            if not storage.has_seen_path(key):
+                is_first_seen = True
+        except Exception:
+            pass
+    
+    # For CREATE events: persist ever_private if private, but never require approval
     if event.event_type == "create":
-        if is_private and not ever_private:
-            # First time this file becomes private
+        if now_private and not was_private:
+            # First time this file becomes private - persist to baseline
             if storage:
                 try:
                     storage.set_ever_private(key, True)
@@ -97,10 +109,10 @@ def mark_requires_admin_approval(event: Event, config: Optional[Config] = None, 
                     pass
             SENSITIVE_PATHS.add(key)  # Also track in-memory
             event.first_seen = True
-        elif is_private:
+        elif now_private:
             event.first_seen = False  # Already known as private
         else:
-            event.first_seen = not ever_private  # Not private
+            event.first_seen = not was_private  # Not private
         event.requires_admin_approval = False  # CREATE never requires approval
         event.admin_approved = None
         return event
@@ -114,8 +126,9 @@ def mark_requires_admin_approval(event: Event, config: Optional[Config] = None, 
             event.risk_score >= admin_min_risk
         )
         
-        # If file is private and has never been private before: first time becoming private
-        if is_private and not ever_private:
+        # First-time becoming private: no alert, no approval, but persist ever_private
+        # This handles: (1) brand new file, (2) existing file transitioning public -> private
+        if now_private and not was_private:
             # First time this file becomes private -> NO alert, NO approval
             if storage:
                 try:
@@ -123,17 +136,24 @@ def mark_requires_admin_approval(event: Event, config: Optional[Config] = None, 
                 except Exception:
                     pass
             SENSITIVE_PATHS.add(key)  # Track for future events
-            event.first_seen = True
+            event.first_seen = is_first_seen
             event.requires_admin_approval = False
             event.admin_approved = None
             return event
         
-        # If file is private and has been private before: require alert + approval
-        if is_private and ever_private:
-            # File has been private before and is now being changed
+        # If baseline exists AND ever_private is True AND tamper event: require alert + approval
+        # This works even if now_private is False (file was private, any change triggers alert)
+        if was_private:
+            # File was already private and is now being changed - ALWAYS require approval
             event.first_seen = False
             event.requires_admin_approval = True
             event.admin_approved = False
+            # Ensure baseline stays private (sticky)
+            if storage and now_private:
+                try:
+                    storage.set_ever_private(key, True)
+                except Exception:
+                    pass
             SENSITIVE_PATHS.add(key)  # Ensure tracked
             return event
         

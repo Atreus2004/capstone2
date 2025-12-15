@@ -32,7 +32,8 @@ class Storage:
                 first_seen TEXT,
                 last_seen TEXT,
                 last_event_type TEXT,
-                ever_private INTEGER
+                ever_private INTEGER,
+                content_classification TEXT
             )
             """
         )
@@ -82,6 +83,7 @@ class Storage:
         existing = {row[1] for row in cursor.fetchall()}
         needed = {
             "ever_private": "INTEGER",
+            "content_classification": "TEXT",
         }
         for col, col_type in needed.items():
             if col not in existing:
@@ -180,6 +182,38 @@ class Storage:
         self.conn.execute(
             "UPDATE files SET ever_private = ? WHERE path = ?",
             (1 if value else 0, path),
+        )
+        self.conn.commit()
+    
+    def get_file_classification(self, path: str) -> Optional[str]:
+        """Get the content_classification from baseline for a file path."""
+        record = self.get_file(path)
+        if not record:
+            return None
+        return record.get("content_classification")
+    
+    def set_file_classification(self, path: str, classification: str) -> None:
+        """Update the content_classification in baseline for a file path."""
+        self.conn.execute(
+            "UPDATE files SET content_classification = ? WHERE path = ?",
+            (classification, path),
+        )
+        self.conn.commit()
+    
+    def is_baseline_private(self, path: str) -> bool:
+        """Check if baseline marks this file as private (content_classification == "private" OR ever_private == True)."""
+        record = self.get_file(path)
+        if not record:
+            return False
+        classification = record.get("content_classification")
+        ever_private = bool(record.get("ever_private", 0))
+        return classification == "private" or ever_private
+    
+    def mark_baseline_private(self, path: str) -> None:
+        """Mark a file as private in baseline (sets both content_classification and ever_private)."""
+        self.conn.execute(
+            "UPDATE files SET content_classification = ?, ever_private = ? WHERE path = ?",
+            ("private", 1, path),
         )
         self.conn.commit()
 
