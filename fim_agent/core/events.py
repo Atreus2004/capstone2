@@ -244,7 +244,7 @@ def simple_ai_classification(event: Event) -> Tuple[str, int, str]:
     return classification, base_score, reason
 
 
-def mark_alert(event: Event, min_risk: int, min_ai_risk: int, storage: Optional[Any] = None) -> Event:
+def mark_alert(event: Event, min_risk: int, min_ai_risk: int, storage: Optional["Storage"] = None) -> Event:
     """
     Mark an event as an alert based on risk score thresholds.
     
