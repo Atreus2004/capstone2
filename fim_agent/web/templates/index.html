@@ -72,11 +72,13 @@
         /* Main content */
         .main-content {
             flex: 1;
-            padding: 24px 32px;
+            padding: 32px;
             display: flex;
             flex-direction: column;
             align-items: stretch;
-            background-color: #1e293b;
+            background: radial-gradient(circle at 10% 20%, rgba(255,255,255,0.04), transparent 25%),
+                        radial-gradient(circle at 80% 0%, rgba(59,130,246,0.08), transparent 35%),
+                        #0b1224;
             min-height: 100vh;
         }
 
@@ -91,12 +93,59 @@
         }
 
         .page-header {
-            margin-bottom: 30px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
         }
 
         .page-header h2 {
-            font-size: 28px;
+            font-size: 30px;
             color: #e2e8f0;
+        }
+
+        .eyebrow {
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #94a3b8;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .threat-header h2 {
+            margin: 0;
+        }
+
+        .range-selector {
+            display: inline-flex;
+            gap: 8px;
+            background: #111827;
+            padding: 6px;
+            border-radius: 12px;
+            border: 1px solid #1f2937;
+        }
+
+        .range-btn {
+            border: none;
+            background: transparent;
+            color: #cbd5e1;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .range-btn:hover {
+            background: #1f2937;
+            color: #e2e8f0;
+        }
+
+        .range-btn.active {
+            background: linear-gradient(135deg, #22d3ee, #3b82f6);
+            color: #0b1224;
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.35);
         }
 
         /* Tab content sections */
@@ -151,32 +200,46 @@
         }
 
         /* Charts section */
-        .dashboard-grid {
+        .analytics-grid {
             display: grid;
-            grid-template-columns: 1.2fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 30px;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
         }
 
-        @media (max-width: 900px) {
-            .dashboard-grid {
+        @media (max-width: 1100px) {
+            .analytics-grid {
                 grid-template-columns: 1fr;
             }
         }
 
-        .chart-container {
-            background: #334155;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-            border: 1px solid #475569;
+        .panel {
+            background: #f8fafc;
+            color: #0f172a;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+        }
+
+        .panel h3 {
+            color: #0f172a;
+            margin: 0;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px 16px 0;
         }
 
         .chart-card {
-            height: 320px;
-            max-height: 320px;
+            padding: 8px 16px 16px;
             display: flex;
             flex-direction: column;
+            gap: 12px;
+            min-height: 320px;
         }
 
         .chart-card canvas {
@@ -184,10 +247,47 @@
             height: 100% !important;
         }
 
-        .chart-container h3 {
-            font-size: 18px;
-            margin-bottom: 20px;
-            color: #e2e8f0;
+        .chart-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: center;
+            flex: 1;
+        }
+
+        @media (max-width: 900px) {
+            .chart-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .legend {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+        }
+
+        .chart-total {
+            font-weight: 700;
+            color: #0f172a;
+            background: #e0f2fe;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid #bfdbfe;
         }
 
         /* Filters */
@@ -233,18 +333,16 @@
 
         /* Events table */
         .table-container {
-            background: #334155;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-            border: 1px solid #475569;
-            overflow-x: auto;
+            background: transparent;
+            padding: 0;
+            border: none;
+            box-shadow: none;
         }
 
-        .table-container h3 {
-            font-size: 18px;
-            margin-bottom: 20px;
-            color: #e2e8f0;
+        .table-wrapper {
+            overflow: auto;
+            max-height: 520px;
+            border-top: 1px solid #e2e8f0;
         }
 
         table {
@@ -253,7 +351,11 @@
         }
 
         table thead {
-            background-color: #1e293b;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background-color: #e2e8f0;
+            box-shadow: inset 0 -1px 0 #cbd5e1;
         }
 
         table th {
@@ -261,16 +363,16 @@
             padding: 12px;
             font-size: 12px;
             text-transform: uppercase;
-            color: #94a3b8;
-            font-weight: 600;
-            border-bottom: 2px solid #475569;
+            color: #475569;
+            font-weight: 700;
+            border-bottom: 1px solid #cbd5e1;
         }
 
         table td {
             padding: 12px;
-            border-bottom: 1px solid #475569;
+            border-bottom: 1px solid #e2e8f0;
             font-size: 14px;
-            color: #e2e8f0;
+            color: #0f172a;
         }
 
         table tbody tr {
@@ -279,7 +381,7 @@
         }
 
         table tbody tr:hover {
-            background-color: #475569;
+            background-color: #f1f5f9;
         }
 
         .badge {
@@ -987,64 +1089,46 @@
         <main class="main-content">
             <!-- Dashboard Tab -->
             <div class="tab-content active" id="tab-dashboard">
-                <div class="page-header">
-                    <h2>Dashboard</h2>
+                <div class="page-header threat-header">
+                    <div>
+                        <p class="eyebrow">Threat Hunting</p>
+                        <h2>Overview</h2>
+                    </div>
+                    <div class="range-selector" id="range-selector">
+                        <button data-range="24h" class="range-btn">24h</button>
+                        <button data-range="12h" class="range-btn">12h</button>
+                        <button data-range="1h" class="range-btn active">1h</button>
+                        <button data-range="15m" class="range-btn">15m</button>
+                        <button data-range="5m" class="range-btn">5m</button>
+                    </div>
                 </div>
 
-                <!-- Summary Cards -->
-                <div class="cards-grid">
-                <div class="card">
-                    <h3>Total Events</h3>
-                    <div class="value" id="total-events">-</div>
+                <div class="analytics-grid">
+                    <div class="panel chart-card">
+                        <div class="panel-header">
+                            <div>
+                                <p class="eyebrow">Distribution</p>
+                                <h3>Action distribution</h3>
+                            </div>
+                            <div class="chart-total" id="action-total">-</div>
+                        </div>
+                        <div class="chart-row">
+                            <canvas id="action-distribution-chart"></canvas>
+                            <div class="legend" id="action-legend"></div>
+                        </div>
+                    </div>
+                    <div class="panel chart-card">
+                        <div class="panel-header">
+                            <div>
+                                <p class="eyebrow">Trend</p>
+                                <h3>Alerts evolution (by action)</h3>
+                            </div>
+                        </div>
+                        <div class="chart-row">
+                            <canvas id="alerts-evolution-chart"></canvas>
+                        </div>
+                    </div>
                 </div>
-                <div class="card alert">
-                    <h3>Total Alerts</h3>
-                    <div class="value" id="total-alerts">-</div>
-                </div>
-                <div class="card high-risk">
-                    <h3>High Risk Events</h3>
-                    <div class="value" id="high-risk-events">-</div>
-                </div>
-                <div class="card sensitive">
-                    <h3>Sensitive Events</h3>
-                    <div class="value" id="sensitive-events">-</div>
-                </div>
-            </div>
-
-            <!-- Charts -->
-            <div class="dashboard-grid">
-                <div class="card chart-card">
-                    <h3>Risk Distribution</h3>
-                    <canvas id="risk-pie-chart"></canvas>
-                </div>
-                <div class="card chart-card">
-                    <h3>Events by Type</h3>
-                    <canvas id="event-type-chart"></canvas>
-                </div>
-            </div>
-
-            <!-- Filters -->
-            <div class="filters">
-                <label for="severity-filter">Severity:</label>
-                <select id="severity-filter">
-                    <option value="">All</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                </select>
-
-                <label for="classification-filter">Classification:</label>
-                <select id="classification-filter">
-                    <option value="">All</option>
-                    <option value="public">Public</option>
-                    <option value="internal">Internal</option>
-                    <option value="private">Private</option>
-                    <option value="secret">Secret</option>
-                </select>
-
-                <label for="path-search">Search Path:</label>
-                <input type="text" id="path-search" placeholder="Filter by path...">
-            </div>
 
             <!-- Pending Admin Approvals -->
             <div class="table-container" id="pending-approvals-section" style="display: none; margin-bottom: 20px; background-color: #78350f; border-left: 4px solid #f59e0b;">
@@ -1071,27 +1155,33 @@
             </div>
 
             <!-- Events Table -->
-            <div class="table-container">
-                <h3>Recent Events</h3>
+            <div class="table-container panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Live feed</p>
+                        <h3>Security Alerts</h3>
+                    </div>
+                </div>
                 <div id="table-error"></div>
-                <table id="events-table">
-                    <thead>
-                        <tr>
-                            <th>Timestamp</th>
-                            <th>Type</th>
-                            <th>Severity</th>
-                            <th>Risk Score</th>
-                            <th>Path</th>
-                            <th>Classification</th>
-                            <th>Alert</th>
-                        </tr>
-                    </thead>
-                    <tbody id="events-tbody">
-                        <tr>
-                            <td colspan="7" class="loading">Loading events...</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="table-wrapper">
+                    <table id="events-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Action</th>
+                                <th>Path</th>
+                                <th>Severity</th>
+                                <th>MITRE Technique</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody id="events-tbody">
+                            <tr>
+                                <td colspan="6" class="loading">Loading events...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
             </div>
 
@@ -1295,8 +1385,6 @@
 
     <script>
         // Global state
-        let riskPieChart = null;
-        let eventTypeChart = null;
         let currentEvent = null;
 
         // Global state for approval modal
@@ -1309,64 +1397,284 @@
 
         // Events cache for filtering
         let eventsCache = [];
+        let riskPieChart = null;
+        let eventTypeChart = null;
+        let actionDistributionChart = null;
+        let alertsEvolutionChart = null;
+        let currentRange = '1h';
 
-        // Login flow functions
-        async function loadSummary() {
-            const res = await fetch("/api/stats/summary", {
-                credentials: "include",
+        const RANGE_WINDOWS = {
+            '24h': 24 * 60 * 60 * 1000,
+            '12h': 12 * 60 * 60 * 1000,
+            '1h': 60 * 60 * 1000,
+            '15m': 15 * 60 * 1000,
+            '5m': 5 * 60 * 1000,
+        };
+
+        const ACTION_COLORS = {
+            create: '#22d3ee',
+            modify: '#6366f1',
+            delete: '#f43f5e',
+        };
+
+        function normalizeAction(rawAction) {
+            if (!rawAction) return null;
+            const lower = rawAction.toLowerCase();
+            if (lower.startsWith('creat')) return 'create';
+            if (lower.startsWith('modif')) return 'modify';
+            if (lower.startsWith('dele')) return 'delete';
+            return null;
+        }
+
+        function mapEventAction(event) {
+            return normalizeAction(event.action || event.event_type || event.type);
+        }
+
+        function filterEventsByRange(events) {
+            const windowMs = RANGE_WINDOWS[currentRange] || RANGE_WINDOWS['1h'];
+            const cutoff = Date.now() - windowMs;
+            return events.filter(ev => {
+                const ts = new Date(ev.timestamp).getTime();
+                return !Number.isNaN(ts) && ts >= cutoff;
             });
-            if (!res.ok) return;
-            const data = await res.json();
-            // Reuse existing code that updates the summary cards
-            if (typeof updateSummaryCards === 'function') {
-                updateSummaryCards(data);
+        }
+
+        function getBucketSizeMs(rangeKey) {
+            switch (rangeKey) {
+                case '24h':
+                    return 30 * 60 * 1000;
+                case '12h':
+                    return 15 * 60 * 1000;
+                case '1h':
+                    return 5 * 60 * 1000;
+                case '15m':
+                    return 60 * 1000;
+                case '5m':
+                    return 30 * 1000;
+                default:
+                    return 5 * 60 * 1000;
             }
         }
 
-        async function loadRiskPie() {
-            const res = await fetch("/api/stats/risk_pie", {
-                credentials: "include",
+        function formatBucketLabel(date, bucketMs) {
+            const opts = bucketMs >= 60 * 60 * 1000 ? { hour: '2-digit', minute: '2-digit' } : { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            return date.toLocaleTimeString([], opts);
+        }
+
+        function bucketEvents(events) {
+            const windowMs = RANGE_WINDOWS[currentRange] || RANGE_WINDOWS['1h'];
+            const bucketSize = getBucketSizeMs(currentRange);
+            const start = Date.now() - windowMs;
+            const bucketCount = Math.ceil(windowMs / bucketSize);
+            const buckets = Array.from({ length: bucketCount }, (_, idx) => {
+                const startTime = start + idx * bucketSize;
+                return {
+                    label: formatBucketLabel(new Date(startTime), bucketSize),
+                    start: startTime,
+                    counts: { create: 0, modify: 0, delete: 0 },
+                };
             });
-            if (!res.ok) return;
-            const data = await res.json();
-            // Reuse existing Chart.js code that renders the risk pie chart
-            if (typeof renderRiskPieChart === 'function') {
-                renderRiskPieChart(data);
+
+            events.forEach(ev => {
+                const ts = new Date(ev.timestamp).getTime();
+                const action = mapEventAction(ev);
+                if (!action || Number.isNaN(ts)) return;
+                const bucketIndex = Math.floor((ts - start) / bucketSize);
+                if (bucketIndex >= 0 && bucketIndex < buckets.length) {
+                    buckets[bucketIndex].counts[action] += 1;
+                }
+            });
+
+            return buckets;
+        }
+
+        function renderActionLegend(counts) {
+            const legend = document.getElementById('action-legend');
+            if (!legend) return;
+            legend.innerHTML = '';
+            Object.entries(counts).forEach(([action, value]) => {
+                const row = document.createElement('div');
+                row.className = 'legend-item';
+                row.innerHTML = `
+                    <span class="legend-color" style="background:${ACTION_COLORS[action]}"></span>
+                    <span>${action.charAt(0).toUpperCase() + action.slice(1)}</span>
+                    <strong style="margin-left:auto;">${value}</strong>
+                `;
+                legend.appendChild(row);
+            });
+        }
+
+        function renderActionDistributionChart(events) {
+            const ctx = document.getElementById('action-distribution-chart')?.getContext('2d');
+            if (!ctx) return;
+
+            const counts = { create: 0, modify: 0, delete: 0 };
+            events.forEach(ev => {
+                const action = mapEventAction(ev);
+                if (action) counts[action] += 1;
+            });
+
+            const total = Object.values(counts).reduce((a, b) => a + b, 0);
+            const totalBox = document.getElementById('action-total');
+            if (totalBox) totalBox.textContent = total ? `${total} events` : '0 events';
+
+            renderActionLegend(counts);
+
+            if (actionDistributionChart) actionDistributionChart.destroy();
+
+            actionDistributionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Create', 'Modify', 'Delete'],
+                    datasets: [{
+                        data: [counts.create, counts.modify, counts.delete],
+                        backgroundColor: [ACTION_COLORS.create, ACTION_COLORS.modify, ACTION_COLORS.delete],
+                        borderWidth: 0,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.label}: ${ctx.parsed}`,
+                            },
+                        },
+                    },
+                    cutout: '65%',
+                },
+            });
+        }
+
+        function renderAlertsEvolutionChart(events) {
+            const ctx = document.getElementById('alerts-evolution-chart')?.getContext('2d');
+            if (!ctx) return;
+
+            const buckets = bucketEvents(events);
+            const labels = buckets.map(b => b.label);
+            const createData = buckets.map(b => b.counts.create);
+            const modifyData = buckets.map(b => b.counts.modify);
+            const deleteData = buckets.map(b => b.counts.delete);
+
+            if (alertsEvolutionChart) alertsEvolutionChart.destroy();
+
+            alertsEvolutionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Create', data: createData, backgroundColor: ACTION_COLORS.create, stack: 'actions' },
+                        { label: 'Modify', data: modifyData, backgroundColor: ACTION_COLORS.modify, stack: 'actions' },
+                        { label: 'Delete', data: deleteData, backgroundColor: ACTION_COLORS.delete, stack: 'actions' },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#0f172a' },
+                        },
+                        tooltip: {
+                            callbacks: {
+                                footer: (items) => {
+                                    const sum = items.reduce((acc, item) => acc + item.parsed.y, 0);
+                                    return `Total: ${sum}`;
+                                },
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            grid: { color: '#e2e8f0' },
+                            ticks: { color: '#475569' },
+                        },
+                    },
+                },
+            });
+        }
+
+        function renderAlertsTable(events) {
+            const tbody = document.getElementById('events-tbody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+            if (events.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="loading">No events in range</td></tr>';
+                return;
+            }
+
+            const sorted = [...events].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            sorted.forEach(event => {
+                const action = mapEventAction(event) || 'n/a';
+                const mitre = Array.isArray(event.mitre_tags) && event.mitre_tags.length > 0 ? event.mitre_tags[0] : '-';
+                const severity = event.severity || '-';
+                const row = document.createElement('tr');
+                row.onclick = () => {
+                    currentEvent = event;
+                    showEventDetails(event.id);
+                };
+                row.innerHTML = `
+                    <td>${formatTimestamp(event.timestamp)}</td>
+                    <td style="text-transform: capitalize; font-weight: 700; color: #0f172a;">${action}</td>
+                    <td>${truncatePath(event.path)}</td>
+                    <td><span class="badge severity-${severity}">${severity}</span></td>
+                    <td>${mitre}</td>
+                    <td>${event.message || event.description || '-'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        async function loadThreatOverview() {
+            try {
+                const params = new URLSearchParams({ limit: '500' });
+                const res = await fetch(`/api/events?${params}`, { credentials: 'include' });
+                if (res.status === 401) {
+                    document.getElementById("login-overlay").style.display = "flex";
+                    return;
+                }
+                if (!res.ok) return;
+                const data = await res.json();
+                eventsCache = data.events || [];
+                updateThreatOverview();
+            } catch (err) {
+                console.error('Failed to load events', err);
             }
         }
 
-        function getCurrentEventQuery() {
-            const severity = document.getElementById("severity-filter")?.value || "";
-            const classification = document.getElementById("classification-filter")?.value || "";
-            const search = document.getElementById("path-search")?.value?.trim() || "";
-
-            const params = new URLSearchParams();
-            params.set("limit", "100");
-            if (severity) params.set("severity", severity);
-            if (classification) params.set("classification", classification);
-            if (search) params.set("path_filter", search);
-            return "?" + params.toString();
+        function updateThreatOverview() {
+            const filtered = filterEventsByRange(eventsCache);
+            renderActionDistributionChart(filtered);
+            renderAlertsEvolutionChart(filtered);
+            renderAlertsTable(filtered);
         }
 
-        async function loadEvents(query) {
-            const qs = query || getCurrentEventQuery() || "?limit=100";
-            const res = await fetch("/api/events" + qs, { credentials: "include" });
-            if (!res.ok) return;
-            const data = await res.json();
-            
-            // Reuse existing code that fills the events table
-            if (typeof renderEventsTable === 'function') {
-                renderEventsTable(data);
-            }
-
-            // Note: Admin approval modal is now handled by pollPendingApprovals()
-            // This keeps the separation of concerns - polling handles modal display
+        function setupRangeSelector() {
+            const selector = document.getElementById('range-selector');
+            if (!selector) return;
+            selector.addEventListener('click', (e) => {
+                if (e.target instanceof HTMLButtonElement && e.target.dataset.range) {
+                    currentRange = e.target.dataset.range;
+                    selector.querySelectorAll('.range-btn').forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+                    updateThreatOverview();
+                }
+            });
         }
 
         async function refreshDashboard() {
-            await loadSummary();
-            await loadRiskPie();
-            await loadEvents();
+            await loadThreatOverview();
         }
 
         async function initDashboard() {
@@ -1381,20 +1689,12 @@
                 if (overlay) overlay.style.display = "none";
                 if (shell) shell.style.display = "flex";
 
-                await loadSummary();
-                await loadRiskPie();
-                await loadEvents();
+                await loadThreatOverview();
 
-                // Also load additional dashboard components if functions exist
-                if (typeof loadEventTypeChart === 'function') {
-                    await loadEventTypeChart();
-                }
                 if (typeof loadPendingApprovals === 'function') {
                     await loadPendingApprovals();
                 }
-                if (typeof setupFilters === 'function') {
-                    setupFilters();
-                }
+                setupRangeSelector();
                 if (typeof setupTableClicks === 'function') {
                     setupTableClicks();
                 }
@@ -1467,20 +1767,11 @@
                 const shell = document.getElementById("app-shell");
                 if (shell) shell.style.display = "flex";
 
-                await loadSummary();
-                await loadRiskPie();
-                await loadEvents();
-
-                // Also load additional dashboard components if functions exist
-                if (typeof loadEventTypeChart === 'function') {
-                    await loadEventTypeChart();
-                }
+                await loadThreatOverview();
                 if (typeof loadPendingApprovals === 'function') {
                     await loadPendingApprovals();
                 }
-                if (typeof setupFilters === 'function') {
-                    setupFilters();
-                }
+                setupRangeSelector();
                 if (typeof setupTableClicks === 'function') {
                     setupTableClicks();
                 }
@@ -1587,10 +1878,8 @@
 
                 hideAdminApprovalModal();
 
-                // reload stats and events so the table + cards refresh
-                await loadSummary();
-                await loadRiskPie();
-                await loadEvents(currentFilterParams || "");
+                // reload dashboard data so the table + charts refresh
+                await loadThreatOverview();
             } catch (err) {
                 console.error("Approval failed", err);
                 if (errorBox) errorBox.textContent = "Approval error — check console";
@@ -1723,13 +2012,13 @@
                 }
 
                 const result = await response.json();
-                
+
                 // Close modal
                 closeApprovalModal();
-                
+
                 // Reload pending approvals and events
                 loadPendingApprovals();
-                loadEventsWithFilters();
+                loadThreatOverview();
                 
                 // Show success message
                 alert(result.message || (approved ? 'Event approved successfully' : 'Event rejected'));
