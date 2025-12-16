@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 import json
+import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional, List
@@ -33,7 +34,9 @@ class Storage:
                 last_seen TEXT,
                 last_event_type TEXT,
                 ever_private INTEGER,
-                content_classification TEXT
+                content_classification TEXT,
+                baseline_sha256 TEXT,
+                last_sha256 TEXT
             )
             """
         )
@@ -84,6 +87,8 @@ class Storage:
         needed = {
             "ever_private": "INTEGER",
             "content_classification": "TEXT",
+            "baseline_sha256": "TEXT",
+            "last_sha256": "TEXT",
         }
         for col, col_type in needed.items():
             if col not in existing:
@@ -115,6 +120,9 @@ class Storage:
             "old_path": "TEXT",
             "requires_admin_approval": "INTEGER",
             "admin_approved": "INTEGER",
+            "event_sha256": "TEXT",
+            "previous_event_sha256": "TEXT",
+            "baseline_sha256": "TEXT",
         }
         for col, col_type in needed.items():
             if col not in existing:
@@ -141,32 +149,47 @@ class Storage:
     def upsert_file(self, path: str, file_hash: str, event_type: str, timestamp: datetime, ever_private: Optional[bool] = None) -> None:
         """Insert or update a file record."""
         ts = timestamp.isoformat()
+        # Check if this is first seen (baseline missing)
+        existing = self.get_file(path)
+        is_first_seen = existing is None
+        
+        if is_first_seen:
+            # First seen: set baseline_sha256 and last_sha256 to current hash
+            baseline_sha256 = file_hash
+            last_sha256 = file_hash
+        else:
+            # Not first seen: preserve baseline_sha256, update last_sha256
+            baseline_sha256 = existing.get("baseline_sha256") or existing.get("hash")
+            last_sha256 = file_hash
+        
         # If ever_private is provided, update it; otherwise preserve existing value
         if ever_private is not None:
             self.conn.execute(
                 """
-                INSERT INTO files (path, hash, first_seen, last_seen, last_event_type, ever_private)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO files (path, hash, first_seen, last_seen, last_event_type, ever_private, baseline_sha256, last_sha256)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(path) DO UPDATE SET
                     hash=excluded.hash,
                     last_seen=excluded.last_seen,
                     last_event_type=excluded.last_event_type,
-                    ever_private=excluded.ever_private
+                    ever_private=excluded.ever_private,
+                    last_sha256=excluded.last_sha256
                 """,
-                (path, file_hash, ts, ts, event_type, 1 if ever_private else 0),
+                (path, file_hash, ts, ts, event_type, 1 if ever_private else 0, baseline_sha256, last_sha256),
             )
         else:
             # Preserve existing ever_private value
             self.conn.execute(
                 """
-                INSERT INTO files (path, hash, first_seen, last_seen, last_event_type, ever_private)
-                VALUES (?, ?, ?, ?, ?, COALESCE((SELECT ever_private FROM files WHERE path = ?), 0))
+                INSERT INTO files (path, hash, first_seen, last_seen, last_event_type, ever_private, baseline_sha256, last_sha256)
+                VALUES (?, ?, ?, ?, ?, COALESCE((SELECT ever_private FROM files WHERE path = ?), 0), ?, ?)
                 ON CONFLICT(path) DO UPDATE SET
                     hash=excluded.hash,
                     last_seen=excluded.last_seen,
-                    last_event_type=excluded.last_event_type
+                    last_event_type=excluded.last_event_type,
+                    last_sha256=excluded.last_sha256
                 """,
-                (path, file_hash, ts, ts, event_type, path),
+                (path, file_hash, ts, ts, event_type, path, baseline_sha256, last_sha256),
             )
         self.conn.commit()
     
@@ -292,17 +315,46 @@ class Storage:
         self.conn.commit()
 
     def record_event(self, event: Event) -> None:
-        """Persist an Event to the events table."""
+        """Persist an Event to the events table with baseline and chain hashing."""
         try:
+            # Get baseline info for this file path
+            baseline_record = self.get_file(event.path)
+            if baseline_record:
+                # Set previous_sha256 from baseline's last_sha256
+                if event.previous_sha256 is None:
+                    event.previous_sha256 = baseline_record.get("last_sha256")
+                # Set baseline_sha256 from baseline
+                if event.baseline_sha256 is None:
+                    event.baseline_sha256 = baseline_record.get("baseline_sha256") or baseline_record.get("hash")
+                # Set hash_changed if not already set
+                if event.hash_changed is None and event.previous_sha256 is not None and event.sha256 is not None:
+                    event.hash_changed = (event.sha256 != event.previous_sha256)
+            
+            # Get previous event's event_sha256 for chain hashing
+            if event.previous_event_sha256 is None:
+                cursor = self.conn.execute(
+                    "SELECT event_sha256 FROM events ORDER BY id DESC LIMIT 1"
+                )
+                row = cursor.fetchone()
+                if row and row[0]:
+                    event.previous_event_sha256 = row[0]
+            
+            # Compute event_sha256 from canonical JSON (excluding event_sha256 and previous_event_sha256)
+            if event.event_sha256 is None:
+                event_dict = self._event_to_dict_for_hashing(event)
+                canonical_json = json.dumps(event_dict, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+                event.event_sha256 = hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
+            
             self.conn.execute(
                 """
                 INSERT INTO events (
                     timestamp, event_type, path, old_hash, new_hash, severity, mitre_tags, message,
                     user, user_type, process_name, sha256, previous_sha256, hash_changed,
                     content_classification, risk_score, ai_classification, ai_risk_score, ai_risk_reason, is_alert, old_path,
-                    requires_admin_approval, admin_approved, content_score, content_flags, ai_recommendation, classification_matches
+                    requires_admin_approval, admin_approved, content_score, content_flags, ai_recommendation, classification_matches,
+                    event_sha256, previous_event_sha256, baseline_sha256
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event.timestamp.isoformat(),
@@ -332,6 +384,9 @@ class Storage:
                     json.dumps(event.content_flags) if event.content_flags else None,
                     event.ai_recommendation,
                     json.dumps(event.classification_matches) if event.classification_matches else None,
+                    event.event_sha256,
+                    event.previous_event_sha256,
+                    event.baseline_sha256,
                 ),
             )
             self.conn.commit()
@@ -340,6 +395,70 @@ class Storage:
             import sys
             print(f"Warning: Failed to persist event to database: {e}", file=sys.stderr)
             self.conn.rollback()
+    
+    def _event_to_dict_for_hashing(self, event: Event) -> Dict[str, Any]:
+        """Convert event to dict for canonical JSON hashing (excludes event_sha256 and previous_event_sha256)."""
+        return {
+            "timestamp": event.timestamp.isoformat(),
+            "event_type": event.event_type,
+            "path": event.path,
+            "old_hash": event.old_hash,
+            "new_hash": event.new_hash,
+            "severity": event.severity,
+            "mitre_tags": event.mitre_tags or [],
+            "message": event.message,
+            "user": event.user,
+            "user_type": event.user_type,
+            "process_name": event.process_name,
+            "sha256": event.sha256,
+            "previous_sha256": event.previous_sha256,
+            "hash_changed": event.hash_changed,
+            "content_classification": event.content_classification,
+            "risk_score": event.risk_score,
+            "ai_classification": event.ai_classification,
+            "ai_risk_score": event.ai_risk_score,
+            "ai_risk_reason": event.ai_risk_reason,
+            "is_alert": event.is_alert,
+            "old_path": event.old_path,
+            "requires_admin_approval": event.requires_admin_approval,
+            "admin_approved": event.admin_approved,
+            "content_score": event.content_score,
+            "content_flags": event.content_flags or [],
+            "ai_recommendation": event.ai_recommendation,
+            "classification_matches": event.classification_matches or [],
+            "first_seen": event.first_seen,
+            "baseline_sha256": event.baseline_sha256,
+        }
+    
+    def verify_chain(self, limit: int = 100) -> tuple[bool, Optional[str]]:
+        """
+        Verify the integrity of the last N events' metadata hash chain.
+        
+        Returns:
+            (is_valid, error_message): True if chain is valid, False with error message if broken.
+        """
+        try:
+            cursor = self.conn.execute(
+                "SELECT id, event_sha256, previous_event_sha256 FROM events ORDER BY id DESC LIMIT ?",
+                (limit,)
+            )
+            rows = cursor.fetchall()
+            if not rows:
+                return (True, None)
+            
+            # Verify chain backwards (from most recent to oldest)
+            prev_event_sha256 = None
+            for row in rows:
+                event_id, event_sha256, previous_event_sha256 = row
+                if prev_event_sha256 is not None:
+                    # Check that this event's previous_event_sha256 matches the previous event's event_sha256
+                    if previous_event_sha256 != prev_event_sha256:
+                        return (False, f"Chain broken at event {event_id}: previous_event_sha256 mismatch")
+                prev_event_sha256 = event_sha256
+            
+            return (True, None)
+        except Exception as e:
+            return (False, f"Verification error: {e}")
 
     # Backward-compatible alias
     def log_event(self, event: Event) -> None:
@@ -441,6 +560,9 @@ class Storage:
                 process_name=row_dict.get("process_name"),
                 sha256=row_dict.get("sha256"),
                 previous_sha256=row_dict.get("previous_sha256"),
+                event_sha256=row_dict.get("event_sha256"),
+                previous_event_sha256=row_dict.get("previous_event_sha256"),
+                baseline_sha256=row_dict.get("baseline_sha256"),
                 hash_changed=bool(row_dict["hash_changed"]) if row_dict.get("hash_changed") is not None else None,
                 content_classification=row_dict.get("content_classification"),
                 risk_score=int(row_dict["risk_score"]) if row_dict.get("risk_score") is not None else None,
@@ -483,6 +605,9 @@ class Storage:
             process_name=row_dict.get("process_name"),
             sha256=row_dict.get("sha256"),
             previous_sha256=row_dict.get("previous_sha256"),
+            event_sha256=row_dict.get("event_sha256"),
+            previous_event_sha256=row_dict.get("previous_event_sha256"),
+            baseline_sha256=row_dict.get("baseline_sha256"),
             hash_changed=bool(row_dict["hash_changed"]) if row_dict.get("hash_changed") is not None else None,
             content_classification=row_dict.get("content_classification"),
             risk_score=int(row_dict["risk_score"]) if row_dict.get("risk_score") is not None else None,
@@ -593,6 +718,9 @@ class Storage:
                 process_name=row_dict.get("process_name"),
                 sha256=row_dict.get("sha256"),
                 previous_sha256=row_dict.get("previous_sha256"),
+                event_sha256=row_dict.get("event_sha256"),
+                previous_event_sha256=row_dict.get("previous_event_sha256"),
+                baseline_sha256=row_dict.get("baseline_sha256"),
                 hash_changed=bool(row_dict["hash_changed"]) if row_dict.get("hash_changed") is not None else None,
                 content_classification=row_dict.get("content_classification"),
                 risk_score=int(row_dict["risk_score"]) if row_dict.get("risk_score") is not None else None,

@@ -158,3 +158,4 @@ def analyze_event_with_ai(event: Event) -> Dict[str, Any]:
         logger.warning(f"OpenAI API call failed: {e}", exc_info=True)
         return {}
 
+

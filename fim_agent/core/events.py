@@ -54,6 +54,9 @@ class Event:
     content_flags: Optional[List[str]] = None  # Content inspection flags
     ai_recommendation: Optional[str] = None  # AI-driven recommendation based on content
     first_seen: Optional[bool] = None  # True if this is the first time we observe this file path
+    event_sha256: Optional[str] = None  # SHA256 of canonical event JSON (tamper-evident)
+    previous_event_sha256: Optional[str] = None  # SHA256 of previous event in chain
+    baseline_sha256: Optional[str] = None  # SHA256 of file when first seen (baseline hash)
 
 
 def calculate_severity(path: str) -> Severity:

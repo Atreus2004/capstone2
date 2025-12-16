@@ -372,3 +372,4 @@ def test_watcher_ai_integration(tmp_path):
     )
     assert _should_analyze_with_ai(normal_event) is False
 
+
