@@ -38,25 +38,62 @@ Key settings in `config/config.yaml` (see `config/config_example.yaml` for defau
 【F:config/config_example.yaml†L1-L34】【F:fim_agent/core/config.py†L15-L58】
 
 ## CLI usage
-Run commands from the project root:
+Run commands from the project root with a valid `config/config.yaml` in place.【F:fim_agent/cli/main.py†L19-L167】
 
-- Initialize the baseline (hash all monitored files):
-  ```bash
-  python -m fim_agent.cli.main init-baseline
-  ```
-- Start the realtime agent (prints/logs events as they occur):
-  ```bash
-  python -m fim_agent.cli.main run-agent
-  ```
-- View event timeline with optional filters:
-  ```bash
-  python -m fim_agent.cli.main timeline --severity high --path-filter /etc
-  ```
-- Launch the web API server:
-  ```bash
-  python -m fim_agent.cli.main serve-web --host 0.0.0.0 --port 8000
-  ```
-【F:fim_agent/cli/main.py†L19-L167】
+### Example environment (Codespaces / Linux Bash)
+Commands in this README mirror a typical GitHub Codespaces or devcontainer shell prompt such as `/workspaces/<repo>` on Linux Bash. Paths use forward slashes and assume the repo root as the working directory.
+
+### Linux/macOS (Bash/Zsh)
+```bash
+export FIM_DASHBOARD_PASSWORD="your-strong-password"
+export FIM_ADMIN_PASSWORD="your-strong-password"
+export OPENAI_API_KEY="your-openai-api-key"
+
+python -m fim_agent.cli.main --config config/config.yaml init-baseline
+python -m fim_agent.cli.main --config config/config.yaml run-agent
+python -m fim_agent.cli.main --config config/config.yaml timeline --severity high --path-filter /etc
+python -m fim_agent.cli.main --config config/config.yaml serve-web --host 0.0.0.0 --port 8000
+```
+
+### Windows (PowerShell)
+```powershell
+$env:FIM_DASHBOARD_PASSWORD = "your-strong-password"
+$env:FIM_ADMIN_PASSWORD     = "your-strong-password"
+$env:OPENAI_API_KEY         = "your-openai-api-key"
+
+py -m fim_agent.cli.main --config config\config.yaml init-baseline
+py -m fim_agent.cli.main --config config\config.yaml run-agent
+py -m fim_agent.cli.main --config config\config.yaml timeline --severity high --path-filter C:\\Windows
+py -m fim_agent.cli.main --config config\config.yaml serve-web --host 0.0.0.0 --port 8000
+```
+
+### Other environments
+
+#### Windows (CMD)
+```bat
+set FIM_DASHBOARD_PASSWORD=your-strong-password
+set FIM_ADMIN_PASSWORD=your-strong-password
+set OPENAI_API_KEY=your-openai-api-key
+
+py -m fim_agent.cli.main --config config\config.yaml init-baseline
+py -m fim_agent.cli.main --config config\config.yaml run-agent
+py -m fim_agent.cli.main --config config\config.yaml timeline --severity high --path-filter C:\Windows
+py -m fim_agent.cli.main --config config\config.yaml serve-web --host 0.0.0.0 --port 8000
+```
+
+#### Fish shell
+```fish
+set -x FIM_DASHBOARD_PASSWORD "your-strong-password"
+set -x FIM_ADMIN_PASSWORD "your-strong-password"
+set -x OPENAI_API_KEY "your-openai-api-key"
+
+python -m fim_agent.cli.main --config config/config.yaml init-baseline
+python -m fim_agent.cli.main --config config/config.yaml run-agent
+python -m fim_agent.cli.main --config config/config.yaml timeline --severity high --path-filter /etc
+python -m fim_agent.cli.main --config config/config.yaml serve-web --host 0.0.0.0 --port 8000
+```
+
+Security reminder: Never commit API keys; keep credentials in environment variables or a secrets manager.
 
 ## Web API highlights
 Start the API with `serve-web` and browse `/docs` for interactive documentation. Core endpoints include:
