@@ -40,6 +40,7 @@
             background: var(--bg);
             color: var(--text);
             font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color-scheme: dark;
         }
 
         #app-shell {
@@ -106,15 +107,7 @@
             box-shadow: var(--shadow);
         }
 
-        .page-pill {
-            padding: 8px 14px;
-            border-radius: 24px;
-            background: rgba(91, 141, 239, 0.15);
-            border: 1px solid var(--border);
-            color: var(--text);
-            font-weight: 600;
-            letter-spacing: 0.02em;
-        }
+        .page-pill { display: none; }
 
         .sidebar nav ul {
             list-style: none;
@@ -207,7 +200,7 @@
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 16px;
             width: 100%;
-            margin-bottom: 22px;
+            margin-bottom: 28px;
         }
 
         .card {
@@ -327,7 +320,7 @@
             border: 1px solid var(--border);
             border-radius: 10px;
             font-size: 14px;
-            background-color: rgba(255, 255, 255, 0.04);
+            background-color: #0d1629;
             color: var(--text);
             transition: border-color 0.2s ease, background-color 0.2s ease;
             width: 100%;
@@ -339,18 +332,21 @@
             color-scheme: dark;
             border: 1px solid var(--border);
             appearance: none;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
         }
 
         .filters select.filter-select option {
-            background: #0b1426;
+            background-color: #0c1426;
             color: var(--text);
         }
 
-        .filters select.filter-select:focus {
-            outline: none;
-            background: rgba(91, 141, 239, 0.08);
+        .filters select.filter-select option:checked,
+        .filters select.filter-select option:hover {
+            background-color: rgba(91, 141, 239, 0.15);
+            color: var(--text);
         }
 
+        .filters select.filter-select:focus,
         .filters select:focus,
         .filters input:focus {
             outline: none;
@@ -1226,14 +1222,14 @@
                 <!-- Events Table View (hidden by default, can be shown with filters) -->
                 <div class="filters" id="events-filters" style="display: none;">
                     <label for="events-severity-filter">Severity:</label>
-                    <select id="events-severity-filter">
+                    <select id="events-severity-filter" class="filter-select">
                         <option value="">All</option>
                         <option value="low">Low</option>
                         <option value="medium">Medium</option>
                         <option value="high">High</option>
                     </select>
                     <label for="events-classification-filter">Classification:</label>
-                    <select id="events-classification-filter">
+                    <select id="events-classification-filter" class="filter-select">
                         <option value="">All</option>
                         <option value="public">Public</option>
                         <option value="internal">Internal</option>
@@ -1243,7 +1239,7 @@
                     <label for="events-path-search">Search Path:</label>
                     <input type="text" id="events-path-search" placeholder="Filter by path...">
                     <label for="events-limit">Limit:</label>
-                    <select id="events-limit">
+                    <select id="events-limit" class="filter-select">
                         <option value="50">50</option>
                         <option value="100" selected>100</option>
                         <option value="200">200</option>
@@ -1903,21 +1899,26 @@
                         borderWidth: 1,
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '58%',
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                color: '#e2e8f0',
-                                padding: 16,
-                                usePointStyle: true,
-                                boxWidth: 10,
-                                generateLabels: function(chart) {
-                                    const data = chart.data;
-                                    const dataset = data.datasets[0];
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '58%',
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                align: 'center',
+                                labels: {
+                                    color: '#e2e8f0',
+                                    padding: 16,
+                                    font: {
+                                        size: 13,
+                                        weight: '600'
+                                    },
+                                    usePointStyle: true,
+                                    boxWidth: 10,
+                                    generateLabels: function(chart) {
+                                        const data = chart.data;
+                                        const dataset = data.datasets[0];
                                     const meta = chart.getDatasetMeta(0);
                                     return data.labels.map((label, index) => {
                                         const value = dataset.data[index] ?? 0;
