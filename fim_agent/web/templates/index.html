@@ -207,6 +207,7 @@
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 16px;
             width: 100%;
+            margin-bottom: 22px;
         }
 
         .card {
@@ -330,6 +331,24 @@
             color: var(--text);
             transition: border-color 0.2s ease, background-color 0.2s ease;
             width: 100%;
+        }
+
+        .filters select.filter-select {
+            background: #0f1a30;
+            color: var(--text);
+            color-scheme: dark;
+            border: 1px solid var(--border);
+            appearance: none;
+        }
+
+        .filters select.filter-select option {
+            background: #0b1426;
+            color: var(--text);
+        }
+
+        .filters select.filter-select:focus {
+            outline: none;
+            background: rgba(91, 141, 239, 0.08);
         }
 
         .filters select:focus,
@@ -1053,7 +1072,6 @@
                 <div class="burger">☰</div>
                 <div class="brand-mark">FIM</div>
                 <h1>Guardian</h1>
-                <span class="page-pill">Dashboard</span>
             </div>
             <nav>
                 <ul>
@@ -1118,10 +1136,10 @@
                 </div>
             </div>
 
-            <!-- Filters -->
+                <!-- Filters -->
             <div class="filters">
                 <label for="severity-filter">Severity:</label>
-                <select id="severity-filter">
+                <select id="severity-filter" class="filter-select">
                     <option value="">All</option>
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -1129,7 +1147,7 @@
                 </select>
 
                 <label for="classification-filter">Classification:</label>
-                <select id="classification-filter">
+                <select id="classification-filter" class="filter-select">
                     <option value="">All</option>
                     <option value="public">Public</option>
                     <option value="internal">Internal</option>
@@ -1896,7 +1914,29 @@
                                 color: '#e2e8f0',
                                 padding: 16,
                                 usePointStyle: true,
-                                boxWidth: 10
+                                boxWidth: 10,
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    const dataset = data.datasets[0];
+                                    const meta = chart.getDatasetMeta(0);
+                                    return data.labels.map((label, index) => {
+                                        const value = dataset.data[index] ?? 0;
+                                        const background = Array.isArray(dataset.backgroundColor)
+                                            ? dataset.backgroundColor[index]
+                                            : dataset.backgroundColor;
+
+                                        return {
+                                            text: `${label}: ${value}`,
+                                            fillStyle: background,
+                                            strokeStyle: Array.isArray(dataset.borderColor)
+                                                ? dataset.borderColor[index]
+                                                : dataset.borderColor,
+                                            lineWidth: dataset.borderWidth,
+                                            hidden: meta.data[index]?.hidden || false,
+                                            index
+                                        };
+                                    });
+                                }
                             }
                         }
                     },
