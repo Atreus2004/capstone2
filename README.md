@@ -95,6 +95,58 @@ python -m fim_agent.cli.main --config config/config.yaml serve-web --host 0.0.0.
 
 Security reminder: Never commit API keys; keep credentials in environment variables or a secrets manager.
 
+## Run everything with one command
+
+Start both the agent and web server in the background with a single call, keeping the shell alive so logs can stream and you can stop everything with Ctrl+C.
+
+### Bash (Linux / macOS / Codespaces)
+
+One-liner that sets env vars, starts both processes, and waits:
+
+```bash
+FIM_DASHBOARD_PASSWORD="your-strong-password" \
+FIM_ADMIN_PASSWORD="your-strong-password" \
+OPENAI_API_KEY="your-openai-api-key" \
+bash -c "python -m fim_agent.cli.main --config config/config.yaml run-agent & \
+         python -m fim_agent.cli.main --config config/config.yaml serve-web --host 0.0.0.0 --port 8000 & \
+         wait"
+```
+
+Scripted option with clean shutdown handling:
+
+```bash
+FIM_DASHBOARD_PASSWORD="your-strong-password" \
+FIM_ADMIN_PASSWORD="your-strong-password" \
+OPENAI_API_KEY="your-openai-api-key" \
+bash scripts/run_all.sh
+```
+
+`scripts/run_all.sh` sets `CONFIG_PATH`, `HOST`, and `PORT` defaults, installs signal traps to stop both processes, and waits so the session stays open.
+
+### PowerShell (Windows)
+
+Launch both commands in the background using `Start-Process` so the terminal is free for other work:
+
+```powershell
+$env:FIM_DASHBOARD_PASSWORD = "your-strong-password"
+$env:FIM_ADMIN_PASSWORD     = "your-strong-password"
+$env:OPENAI_API_KEY         = "your-openai-api-key"
+
+Start-Process py -ArgumentList "-m fim_agent.cli.main --config config\config.yaml run-agent"
+Start-Process py -ArgumentList "-m fim_agent.cli.main --config config\config.yaml serve-web --host 0.0.0.0 --port 8000"
+```
+
+Or run the helper script (takes parameters or existing env vars and returns immediately while both processes keep running):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/run_all.ps1 `
+  -DashboardPassword "your-strong-password" `
+  -AdminPassword "your-strong-password" `
+  -OpenAiApiKey "your-openai-api-key"
+```
+
+Security notes: Never commit real passwords or API keys. Keep sensitive values in environment variables, secrets managers, or your shell profile instead of source control.
+
 ## Web API highlights
 Start the API with `serve-web` and browse `/docs` for interactive documentation. Core endpoints include:
 - `GET /api/events`: list events with filters for severity, classification, risk scores, path substring, pagination, and admin-approval flags.
