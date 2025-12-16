@@ -58,6 +58,17 @@ Run commands from the project root:
   ```
 【F:fim_agent/cli/main.py†L19-L167】
 
+### Windows/PowerShell quick start
+If you're running the agent from Windows with PowerShell, you can set environment variables and launch the agent and web server with:
+
+```powershell
+py -m fim_agent.cli.main --config config\config.yaml run-agent
+$env:FIM_ADMIN_PASSWORD      = "Secret123!"
+$env:FIM_DASHBOARD_PASSWORD  = "Secret123!"
+$env:OPENAI_API_KEY="fLOLostkwd0P_fVkkl0NEIIu87sHUkH_aX5eep87q_ZcbX2mc_FS2r6K3O5XI1_HhcT3BlbkFJlrI0GmytOjelYwYLSgcMTmwRa6abT7HxKJns2SbQMssv72yty5BQuEkOFrBr7vL_ezZw_dbx0A"
+py -m fim_agent.cli.main --config config\config.yaml serve-web --host 0.0.0.0 --port 8000
+```
+
 ## Web API highlights
 Start the API with `serve-web` and browse `/docs` for interactive documentation. Core endpoints include:
 - `GET /api/events`: list events with filters for severity, classification, risk scores, path substring, pagination, and admin-approval flags.
