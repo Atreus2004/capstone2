@@ -37,6 +37,46 @@ Key settings in `config/config.yaml` (see `config/config_example.yaml` for defau
 - `require_admin_for_alerts`, `admin_min_risk_score`, `admin_min_ai_risk_score`, `admin_password_env_var`: control when admin approval is required and how passwords are supplied.
 【F:config/config_example.yaml†L1-L34】【F:fim_agent/core/config.py†L15-L58】
 
+### JSON logging (JSON Lines)
+All application logs are emitted as JSON when `log_format` is set to `json` in `config/config.yaml` (default). Logs are written to the file specified by `log_file` and also streamed to stdout with the same structured format.【F:config/config.yaml†L21-L29】【F:fim_agent/core/logging_utils.py†L195-L217】
+
+Example `config/config.yaml` snippet:
+
+```yaml
+log_file: "./logs/fim_agent.log"
+log_format: "json"
+```
+
+Enable JSON logging before starting the agent/web server:
+
+- Bash (Linux/macOS):
+  ```bash
+  # ensure the config uses JSON format
+  sed -n '21,40p' config/config.yaml
+
+  python -m fim_agent.cli.main --config config/config.yaml run-agent
+  python -m fim_agent.cli.main --config config/config.yaml serve-web --host 0.0.0.0 --port 8000
+  ```
+- PowerShell (Windows):
+  ```powershell
+  # ensure the config uses JSON format
+  Get-Content -Path config/config.yaml -TotalCount 20
+
+  py -m fim_agent.cli.main --config config\config.yaml run-agent
+  py -m fim_agent.cli.main --config config\config.yaml serve-web --host 0.0.0.0 --port 8000
+  ```
+
+Verification (JSON Lines): view a few lines to confirm each line is a JSON object.
+
+- Bash:
+  ```bash
+  tail -n 5 logs/fim_agent.log
+  ```
+- PowerShell:
+  ```powershell
+  Get-Content -Path logs/fim_agent.log -Tail 5
+  ```
+
 ## CLI usage
 Run commands from the project root with a valid `config/config.yaml` in place.【F:fim_agent/cli/main.py†L19-L167】
 
